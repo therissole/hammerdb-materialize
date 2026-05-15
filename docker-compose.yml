@@ -1,0 +1,74 @@
+services:
+  postgres:
+    image: postgres
+    container_name: hmdb-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-tpcc}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+    command:
+      - postgres
+      - -c
+      - wal_level=logical
+      - -c
+      - max_wal_senders=20
+      - -c
+      - max_replication_slots=20
+      - -c
+      - shared_preload_libraries=pg_stat_statements
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-tpcc}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./postgres/init:/docker-entrypoint-initdb.d:ro
+      - ./scripts:/work/scripts:ro
+
+  materialized:
+    image: ${MATERIALIZED_IMAGE:-materialize/materialized:latest}
+    container_name: hmdb-materialized
+    restart: unless-stopped
+    ports:
+      - "${MATERIALIZE_SQL_PORT:-6875}:6875"
+      - "6876:6876"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./scripts:/work/scripts:ro
+
+  hammerdb:
+    image: ${HAMMERDB_IMAGE:-tpcorg/hammerdb:latest}
+    container_name: hmdb-hammerdb
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    working_dir: /work
+    command: ["bash", "-lc", "sleep infinity"]
+    environment:
+      TMP: /work/tmp
+      POSTGRES_DB: ${POSTGRES_DB:-tpcc}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_PORT: ${POSTGRES_PORT:-5432}
+      PG_SSLMODE: ${PG_SSLMODE:-prefer}
+      TPCC_USER: ${TPCC_USER:-tpcc}
+      TPCC_PASS: ${TPCC_PASS:-tpcc}
+      TPROC_C_WAREHOUSES: ${TPROC_C_WAREHOUSES:-}
+      TPROC_C_VU: ${TPROC_C_VU:-}
+      TPROC_C_RAMPUP: ${TPROC_C_RAMPUP:-2}
+      TPROC_C_DURATION: ${TPROC_C_DURATION:-5}
+      TPROC_C_ALLWAREHOUSE: ${TPROC_C_ALLWAREHOUSE:-true}
+      PROFILEID: ${TPROC_C_PROFILEID:-0}
+      UAW: ${TPROC_C_UAW:-0}
+    volumes:
+      - ./:/work
+
+volumes:
+  pgdata:
