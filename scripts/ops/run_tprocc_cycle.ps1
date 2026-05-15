@@ -23,6 +23,10 @@ Notes:
 - Workload output files are written under ./tmp (mounted as /work/tmp in the container).
 #>
 
+param(
+    [string]$autorun = ''
+)
+
 $ErrorActionPreference = 'Stop'
 
 $root = Resolve-Path (Join-Path $PSScriptRoot '..\..')
@@ -36,6 +40,19 @@ function Invoke-HammerDbScript {
     )
 
     docker compose exec -T hammerdb bash -lc "mkdir -p /work/tmp; $hammerdbCli auto $ScriptPath"
+}
+
+function Test-IsTrueString {
+    param(
+        [string]$Value
+    )
+
+    if (-not $Value) {
+        return $false
+    }
+
+    $normalized = $Value.Trim().ToLowerInvariant()
+    return ($normalized -eq 'y' -or $normalized -eq 'yes' -or $normalized -eq 'true')
 }
 
 Write-Host 'Stopping containers and removing data volumes'
@@ -92,6 +109,13 @@ docker compose exec -T postgres psql -h materialized -p 6875 -U materialize -d m
     -v "mz_pg_password=$mzPgPassword" `
     -v "mz_pg_sslmode=$mzPgSslmode" `
     -f /work/scripts/materialize/setup_materialize.sql
+
+if (Test-IsTrueString -Value $autorun) {
+    Write-Host "Autorun enabled (autorun=$autorun). Proceeding directly to TPCC workload run."
+}
+else {
+    [void](Read-Host 'Setup complete, ready to proceed with run? Press Enter to continue')
+}
 
 Write-Host 'Running TPCC workload'
 Invoke-HammerDbScript -ScriptPath '/work/scripts/hammerdb/custom/pg_tprocc_run_profile_docker.tcl'

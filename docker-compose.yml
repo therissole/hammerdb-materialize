@@ -34,6 +34,7 @@ services:
     container_name: hmdb-materialized
     restart: unless-stopped
     ports:
+      - "6874:6874"
       - "${MATERIALIZE_SQL_PORT:-6875}:6875"
       - "6876:6876"
     depends_on:
