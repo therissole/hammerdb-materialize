@@ -123,13 +123,27 @@ function Wait-ComposeService {
 
     $maxAttempts = 30
     for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
-        & docker compose exec -T $ServiceName bash -lc $CheckCommand | Out-Null
-        if ($LASTEXITCODE -eq 0) {
+        $isReady = $false
+
+        try {
+            & docker compose exec -T $ServiceName bash -lc $CheckCommand *> $null
+            if ($LASTEXITCODE -eq 0) {
+                $isReady = $true
+            }
+        }
+        catch {
+            # Readiness probes are expected to fail until the service finishes starting.
+            $isReady = $false
+        }
+
+        if ($isReady) {
             return
         }
+
         if ($attempt -eq $maxAttempts) {
             throw "$ServiceName did not become ready in time"
         }
+
         Start-Sleep -Seconds 2
     }
 }
