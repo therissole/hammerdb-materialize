@@ -1,17 +1,18 @@
-# HammerDB + PostgreSQL + Materialize TPCC Lab
+# HammerDB + PostgreSQL/MSSQL + Materialize TPCC Lab
 
 This project sets up a local benchmark lab to:
 
-1. Use HammerDB's PostgreSQL TPROC-C workload to generate transactional load.
-2. Store TPCC data in PostgreSQL.
-3. Ingest TPCC changes into Materialize via PostgreSQL logical replication.
+1. Use HammerDB's TPROC-C workload to generate transactional load against PostgreSQL or SQL Server.
+2. Store TPCC data in PostgreSQL or SQL Server.
+3. Ingest TPCC changes into Materialize via PostgreSQL logical replication or SQL Server CDC.
 4. Validate Materialize behavior as load and data volume increase.
 
 ## What Is Included
 
-- Docker Compose stack for PostgreSQL, HammerDB, and Materialize.
+- Docker Compose stack for PostgreSQL, SQL Server, HammerDB, and Materialize.
 - Upstream HammerDB TCL scripts vendored from:
-  - https://github.com/TPC-Council/HammerDB/tree/master/scripts/tcl/postgres/tprocc
+	- https://github.com/TPC-Council/HammerDB/tree/master/scripts/tcl/postgres/tprocc
+	- https://github.com/TPC-Council/HammerDB/tree/master/scripts/tcl/mssqls/tprocc
 - Container-aware HammerDB TCL variants for this environment.
 - SQL scripts to prepare PostgreSQL publication and initialize Materialize sources/views.
 - Cross-platform helper scripts for Windows PowerShell and Bash.
@@ -44,7 +45,9 @@ This project sets up a local benchmark lab to:
 	 |       `-- pg_tprocc_run_profile_docker.tcl
 	 |-- materialize/
 	 |   |-- prepare_postgres_for_materialize.sql
+	 |   |-- prepare_mssql_for_materialize.sql
 	 |   |-- setup_materialize.sql
+	 |   |-- setup_materialize_mssql.sql
 	 |   `-- smokecheck.sql
 	 `-- ops/
 		  |-- run_tprocc_cycle.ps1
@@ -62,13 +65,14 @@ This project sets up a local benchmark lab to:
 ## Quick Start
 
 1. Copy `.env.example` to `.env`.
-2. Start infrastructure:
+2. Set `RDBMS=PGSQL` or `RDBMS=MSSQL` depending on the database you want to benchmark.
+3. Start infrastructure:
 
 	```bash
 	docker compose up -d
 	```
 
-3. Run one TPCC lifecycle (build schema, validate schema, prep publication, execute workload):
+4. Run one TPCC lifecycle (build schema, validate schema, prep publication or CDC, execute workload):
 
 	PowerShell:
 
@@ -82,7 +86,7 @@ This project sets up a local benchmark lab to:
 	./scripts/ops/run_tprocc_cycle.sh
 	```
 
-4. Initialize Materialize source and run smoke checks:
+5. Initialize Materialize source and run smoke checks:
 
 	PowerShell:
 
@@ -109,6 +113,7 @@ Set these in `.env` before running the cycle script:
 
 ## Notes
 
+- `MSSQL_SA_PASSWORD`: SQL Server `sa` password used by the container and HammerDB connection.
 - Upstream scripts are kept unchanged under `scripts/hammerdb/upstream/tprocc`.
 - Docker-aware scripts are under `scripts/hammerdb/custom` and use environment variables.
 - HammerDB output files are written under `./tmp` (mounted as `/work/tmp` in container).

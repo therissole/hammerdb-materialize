@@ -1,7 +1,31 @@
 services:
+  mssql:
+    image: mcr.microsoft.com/mssql/server:latest
+    container_name: hmdb-mssql
+    profiles:
+      - mssql
+    restart: unless-stopped
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_PID: Developer
+      MSSQL_AGENT_ENABLED: "true"
+      MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD:-YourStrong!Passw0rd}
+    ports:
+      - "${MSSQL_PORT:-1433}:1433"
+    healthcheck:
+      test: ["CMD-SHELL", "bash -lc 'exec 3<>/dev/tcp/localhost/1433'"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    volumes:
+      - mssqldata:/var/opt/mssql
+      - ./scripts:/work/scripts:ro
+
   postgres:
     image: postgres
     container_name: hmdb-postgres
+    profiles:
+      - pgsql
     restart: unless-stopped
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-tpcc}
@@ -37,9 +61,6 @@ services:
       - "6874:6874"
       - "${MATERIALIZE_SQL_PORT:-6875}:6875"
       - "6876:6876"
-    depends_on:
-      postgres:
-        condition: service_healthy
     volumes:
       - ./scripts:/work/scripts:ro
 
@@ -47,18 +68,21 @@ services:
     image: ${HAMMERDB_IMAGE:-tpcorg/hammerdb:latest}
     container_name: hmdb-hammerdb
     restart: unless-stopped
-    depends_on:
-      postgres:
-        condition: service_healthy
     working_dir: /work
     command: ["bash", "-lc", "sleep infinity"]
     environment:
       TMP: /work/tmp
+      RDBMS: ${RDBMS:-PGSQL}
       POSTGRES_DB: ${POSTGRES_DB:-tpcc}
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
       POSTGRES_PORT: ${POSTGRES_PORT:-5432}
       PG_SSLMODE: ${PG_SSLMODE:-prefer}
+      MSSQL_HOST: ${MSSQL_HOST:-mssql}
+      MSSQL_PORT: ${MSSQL_PORT:-1433}
+      MSSQL_DB: ${MSSQL_DB:-tpcc}
+      MSSQL_USER: ${MSSQL_USER:-sa}
+      MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD:-YourStrong!Passw0rd}
       TPCC_USER: ${TPCC_USER:-tpcc}
       TPCC_PASS: ${TPCC_PASS:-tpcc}
       TPROC_C_WAREHOUSES: ${TPROC_C_WAREHOUSES:-}
@@ -72,4 +96,5 @@ services:
       - ./:/work
 
 volumes:
+  mssqldata:
   pgdata:
