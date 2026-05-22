@@ -34,10 +34,15 @@ diset connection mssqls_pass $dbPassword
 diset connection mssqls_linux_authent sql
 diset connection mssqls_linux_odbc {ODBC Driver 18 for SQL Server}
 
-set vu [numberOfCPUs]
-set warehouse [expr {$vu * 5}]
+set vu [env_or_default TPROC_C_VU [numberOfCPUs]]
+set warehouse [env_or_default TPROC_C_WAREHOUSES [expr {$vu * 5}]]
+set buildVu $vu
+if {[string is integer -strict $vu] && [string is integer -strict $warehouse] && $warehouse > 0 && $vu > $warehouse} {
+    puts "Configured build VU ($vu) is greater than warehouses ($warehouse); using build VU = $warehouse."
+    set buildVu $warehouse
+}
 diset tpcc mssqls_count_ware $warehouse
-diset tpcc mssqls_num_vu $vu
+diset tpcc mssqls_num_vu $buildVu
 diset tpcc mssqls_dbase $dbName
 diset tpcc mssqls_use_bcp $useBcp
 

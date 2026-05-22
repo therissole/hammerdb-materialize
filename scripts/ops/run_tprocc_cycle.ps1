@@ -233,7 +233,12 @@ if ($rdbmsMode -eq 'PGSQL') {
 }
 else {
     Write-Host 'Preparing SQL Server CDC for Materialize'
-    & docker compose exec -T mssql /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P $mssqlPassword -C -b -i /work/scripts/materialize/prepare_mssql_for_materialize.sql -v "mssql_db=$mssqlDb"
+    $mssqlSqlcmdPath = (& docker compose exec -T mssql bash -lc 'if command -v /opt/mssql-tools18/bin/sqlcmd >/dev/null 2>&1; then echo /opt/mssql-tools18/bin/sqlcmd; elif command -v /opt/mssql-tools/bin/sqlcmd >/dev/null 2>&1; then echo /opt/mssql-tools/bin/sqlcmd; else exit 1; fi').Trim()
+    if (-not $mssqlSqlcmdPath) {
+        throw 'Could not find sqlcmd in the mssql container (/opt/mssql-tools18/bin/sqlcmd or /opt/mssql-tools/bin/sqlcmd).'
+    }
+
+    & docker compose exec -T mssql $mssqlSqlcmdPath -S localhost -U sa -P $mssqlPassword -C -b -i /work/scripts/materialize/prepare_mssql_for_materialize.sql -v "mssql_db=$mssqlDb"
 
     Write-Host 'Setting up Materialize source in schema tpcc (all CDC tables)'
     & docker compose exec -T materialized psql -h localhost -p 6875 -U materialize -d materialize @materializeArgs -f $setupSql
