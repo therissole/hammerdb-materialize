@@ -18,7 +18,7 @@ set dbUser [env_or_default MSSQL_USER sa]
 set dbPassword [env_or_default MSSQL_SA_PASSWORD YourStrong!Passw0rd]
 set dbName [env_or_default MSSQL_DB tpcc]
 
-diset connection mssqls_tcp false
+diset connection mssqls_tcp true
 diset connection mssqls_port $dbPort
 diset connection mssqls_azure false
 diset connection mssqls_encrypt_connection true

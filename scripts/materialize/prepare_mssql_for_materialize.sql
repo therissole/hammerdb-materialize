@@ -25,7 +25,8 @@ DECLARE table_cursor CURSOR FAST_FORWARD FOR
     SELECT name
     FROM sys.tables
         WHERE schema_id = SCHEMA_ID(N'dbo')
-            AND is_ms_shipped = 0;
+            AND is_ms_shipped = 0
+            AND name <> N'sysdiagrams';
 
 OPEN table_cursor;
 FETCH NEXT FROM table_cursor INTO @table;

@@ -100,6 +100,16 @@ This project sets up a local benchmark lab to:
 	./scripts/ops/setup_materialize.sh
 	```
 
+6. Run the Locust read workload against Materialize:
+
+	PowerShell or Bash:
+
+	```bash
+	docker compose --profile locust up -d --build locust
+	```
+
+	Then open http://localhost:8089.
+
 ## Tunable Workload Settings
 
 Set these in `.env` before running the cycle script:
@@ -110,6 +120,24 @@ Set these in `.env` before running the cycle script:
 - `TPROC_C_DURATION`: timed test duration minutes.
 - `TPROC_C_PROFILEID`: `0` for single run, `>1` for profile run.
 - `TPROC_C_UAW`: set `1`/`true` to force all-warehouse mode.
+
+## Locust Read Load
+
+The root-level `locust/` folder contains a direct Materialize read workload.
+
+It uses:
+
+- `tpcc.customer` to seed the customer pool.
+- `tpcc.order_summary` to fetch recent orders.
+- `tpcc.order_detail` to fetch line-item details for each order.
+- `select o_d_id, sum(o_total) from order_summary group by o_d_id` for a dashboard-style aggregate.
+
+Useful env vars:
+
+- `LOCUST_CUSTOMER_POOL_SIZE`: number of customers to preload per worker.
+- `LOCUST_RECENT_ORDERS_LIMIT`: how many orders to fetch per customer.
+- `LOCUST_MIN_WAIT_SECONDS` and `LOCUST_MAX_WAIT_SECONDS`: think time between tasks.
+- `MATERIALIZE_HOST`, `MATERIALIZE_PORT`, `MATERIALIZE_DATABASE`, `MATERIALIZE_USER`, `MATERIALIZE_PASSWORD`, `MATERIALIZE_SSLMODE`: Materialize connection settings.
 
 ## Notes
 

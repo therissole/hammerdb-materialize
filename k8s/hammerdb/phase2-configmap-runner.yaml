@@ -1,0 +1,74 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: hammerdb-phase2-runner
+  namespace: sql-server
+data:
+  run-phase2.sh: |
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    HAMMERDB_CLI="${HAMMERDB_CLI:-/home/HammerDB-5.0/hammerdbcli}"
+    MODE="${HAMMERDB_PHASE2_MODE:-cli-check}"
+
+    env_is_true() {
+      local value="${1:-}"
+      case "${value,,}" in
+        1|true|yes|y|on) return 0 ;;
+        *) return 1 ;;
+      esac
+    }
+
+    run_hammerdb_auto() {
+      local script_path="$1"
+      local step_name="$2"
+      local log_file="/work/tmp/${step_name}.log"
+
+      "$HAMMERDB_CLI" auto "$script_path" | tee "$log_file"
+
+      if grep -Eiq 'Error in Virtual User|FINISHED FAILED' "$log_file"; then
+        echo "${step_name} failed. See $log_file for details." >&2
+        exit 1
+      fi
+    }
+
+    if [[ ! -x "$HAMMERDB_CLI" ]]; then
+      echo "hammerdbcli not found or not executable at: $HAMMERDB_CLI" >&2
+      exit 1
+    fi
+
+    mkdir -p /work/tmp
+    export TMP="${TMP:-/work/tmp}"
+    export PATH="/opt/mssql-tools18/bin:/opt/mssql-tools/bin:${PATH}"
+
+    if env_is_true "${MSSQL_USE_BCP:-}"; then
+      if ! command -v bcp >/dev/null 2>&1; then
+        echo "MSSQL_USE_BCP is enabled, but bcp is not available on PATH." >&2
+        exit 1
+      fi
+    fi
+
+    echo "Phase 2 mode: $MODE"
+    echo "Using HammerDB CLI: $HAMMERDB_CLI"
+
+    case "$MODE" in
+      cli-check)
+        cat > /work/tmp/phase2_cli_check.tcl <<'EOF'
+    puts "HammerDB CLI batch mode OK"
+    exit
+    EOF
+        run_hammerdb_auto /work/tmp/phase2_cli_check.tcl cli-check
+        ;;
+      build-check-run)
+        run_hammerdb_auto /work/scripts/hammerdb/custom/mssqls_tprocc_buildschema_docker.tcl buildschema
+        run_hammerdb_auto /work/scripts/hammerdb/custom/mssqls_tprocc_checkschema_docker.tcl checkschema
+        run_hammerdb_auto /work/scripts/hammerdb/custom/mssqls_tprocc_run_profile_docker.tcl run-profile
+        ;;
+      *)
+        echo "Unsupported HAMMERDB_PHASE2_MODE: $MODE" >&2
+        echo "Supported modes: cli-check, build-check-run" >&2
+        exit 2
+        ;;
+    esac
+
+    echo "Phase 2 run completed"

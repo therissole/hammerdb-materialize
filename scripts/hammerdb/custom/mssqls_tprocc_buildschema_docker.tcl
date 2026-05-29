@@ -17,11 +17,12 @@ set dbPort [env_or_default MSSQL_PORT 1433]
 set dbUser [env_or_default MSSQL_USER sa]
 set dbPassword [env_or_default MSSQL_SA_PASSWORD YourStrong!Passw0rd]
 set dbName [env_or_default MSSQL_DB tpcc]
-set useBcpRaw [string tolower [env_or_default MSSQL_USE_BCP false]]
+set useBcpRaw [string tolower [env_or_default MSSQL_USE_BCP true]]
 set useBcp [expr {$useBcpRaw in {1 true yes y on}}]
+set useBcpStr [expr {$useBcp ? "true" : "false"}]
 
-# HammerDB uses the linux_* settings inside the container.
-diset connection mssqls_tcp false
+# Force TCP so HammerDB uses MSSQL_PORT instead of default SQL Server resolution.
+diset connection mssqls_tcp true
 diset connection mssqls_port $dbPort
 diset connection mssqls_azure false
 diset connection mssqls_encrypt_connection true
@@ -44,7 +45,7 @@ if {[string is integer -strict $vu] && [string is integer -strict $warehouse] &&
 diset tpcc mssqls_count_ware $warehouse
 diset tpcc mssqls_num_vu $buildVu
 diset tpcc mssqls_dbase $dbName
-diset tpcc mssqls_use_bcp $useBcp
+diset tpcc mssqls_use_bcp $useBcpStr
 
 puts "SCHEMA BUILD STARTED"
 buildschema

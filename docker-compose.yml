@@ -73,6 +73,7 @@ services:
     environment:
       TMP: /work/tmp
       RDBMS: ${RDBMS:-PGSQL}
+      POSTGRES_HOST: ${POSTGRES_HOST:-postgres}
       POSTGRES_DB: ${POSTGRES_DB:-tpcc}
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
@@ -94,6 +95,32 @@ services:
       UAW: ${TPROC_C_UAW:-0}
     volumes:
       - ./:/work
+
+  locust:
+    build:
+      context: ./locust
+    container_name: hmdb-locust
+    profiles:
+      - locust
+    restart: unless-stopped
+    depends_on:
+      - materialized
+    ports:
+      - "8089:8089"
+    environment:
+      MATERIALIZE_HOST: ${MATERIALIZE_HOST:-materialized}
+      MATERIALIZE_PORT: ${MATERIALIZE_SQL_PORT:-6875}
+      MATERIALIZE_DATABASE: ${MATERIALIZE_DB:-materialize}
+      MATERIALIZE_USER: ${MATERIALIZE_USER:-materialize}
+      MATERIALIZE_PASSWORD: ${MATERIALIZE_PASSWORD:-}
+      MATERIALIZE_SSLMODE: ${MATERIALIZE_SSLMODE:-disable}
+      LOCUST_CUSTOMER_POOL_SIZE: ${LOCUST_CUSTOMER_POOL_SIZE:-1000}
+      LOCUST_RECENT_ORDERS_LIMIT: ${LOCUST_RECENT_ORDERS_LIMIT:-5}
+      LOCUST_MIN_WAIT_SECONDS: ${LOCUST_MIN_WAIT_SECONDS:-0.2}
+      LOCUST_MAX_WAIT_SECONDS: ${LOCUST_MAX_WAIT_SECONDS:-2.0}
+    volumes:
+      - ./locust:/app
+    command: ["locust", "-f", "/app/locustfile.py", "--web-host", "0.0.0.0"]
 
 volumes:
   mssqldata:
