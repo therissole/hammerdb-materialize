@@ -4,12 +4,12 @@ param(
     [string]$Mode = "ui",
 
     [Alias("Host")]
-    [string]$MaterializeHost = "4.147.226.194",
+    [string]$MaterializeHost = "127.0.0.1",
     [int]$Port = 6875,
     [string]$Database = "materialize",
-    [string]$Schema = "tpcc_aks",
+    [string]$Schema = "tpcc",
     [string]$DbUser = "mz_system",
-    [string]$Password = "",
+    [string]$Password = "N<_n!BN6v[D=fo5_",
     [ValidateSet("disable", "require")]
     [string]$SslMode = "require",
     [string]$Cluster = "quickstart",
@@ -21,6 +21,12 @@ param(
     [string]$VenvPath = ".venv",
     [string]$LocustFile = "locustfile.py",
     [switch]$SkipInstall,
+
+    [switch]$AutoPortForward,
+    [string]$K8sNamespace = "materialize-environment",
+    [string]$K8sService = "mzy49fo679im-balancerd",
+    [int]$LocalPort = 6875,
+    [int]$RemotePort = 6875,
 
     [switch]$UseK8sSecret,
     [string]$SecretNamespace = "materialize-environment",
@@ -86,6 +92,26 @@ if (-not $SkipInstall) {
     python -m pip install -r requirements.txt
 }
 
+$portForwardProc = $null
+
+if ($AutoPortForward) {
+    if (-not (Get-Command kubectl -ErrorAction SilentlyContinue)) {
+        throw "kubectl is required when -AutoPortForward is set."
+    }
+
+    Write-Host "Starting kubectl port-forward svc/$K8sService $LocalPort`:$RemotePort -n $K8sNamespace ..."
+    $kubectlArgs = @("port-forward", "svc/$K8sService", "$LocalPort`:$RemotePort", "-n", $K8sNamespace)
+    $portForwardProc = Start-Process -FilePath "kubectl" -ArgumentList $kubectlArgs -NoNewWindow -PassThru
+    Start-Sleep -Seconds 1
+    if ($portForwardProc.HasExited) {
+        throw "kubectl port-forward failed to start."
+    }
+
+    # talk to the forwarded port on localhost
+    $MaterializeHost = "localhost"
+    $Port = $LocalPort
+}
+
 $env:MATERIALIZE_HOST = $MaterializeHost
 $env:MATERIALIZE_PORT = "$Port"
 $env:MATERIALIZE_DATABASE = $Database
@@ -108,4 +134,11 @@ if ($Mode -eq "ui") {
     Write-Host "Open http://localhost:8089"
 }
 
-locust @locustArgs
+try {
+    locust @locustArgs
+} finally {
+    if ($portForwardProc -ne $null) {
+        Write-Host "Stopping kubectl port-forward (pid $($portForwardProc.Id))..."
+        Stop-Process -Id $portForwardProc.Id -ErrorAction SilentlyContinue
+    }
+}

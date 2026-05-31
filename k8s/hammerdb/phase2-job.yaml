@@ -35,7 +35,7 @@ spec:
             - name: MSSQL_PORT
               value: "1433"
             - name: MSSQL_DB
-              value: tpcc_aks_smoke
+              value: tpcc
             - name: MSSQL_USER
               value: sa
             - name: MSSQL_SA_PASSWORD

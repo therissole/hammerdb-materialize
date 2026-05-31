@@ -1,4 +1,15 @@
--- Run this after the MSSQL TPCC schema is created and CDC is enabled.
+-- Run this in Materialize after the MSSQL TPCC schema is created and CDC is enabled.
+-- Before running, set these psql variables in your terminal:
+--   \set mz_mssql_host 'mssql.sql-server.svc.cluster.local'
+--   \set mz_mssql_port 1433
+--   \set mz_mssql_db 'tpcc'
+--   \set mz_mssql_user 'materialize'
+--   \set mz_mssql_password 'PASSWORD_FROM_ENV_FILE'
+--   \set mz_mssql_sslmode 'required'
+--
+-- Create a dedicated compute cluster named `tpcc` and switch to it.
+CREATE CLUSTER IF NOT EXISTS tpcc WITH (size = '200cc');
+SET CLUSTER = tpcc;
 
 CREATE SCHEMA IF NOT EXISTS tpcc;
 
@@ -28,7 +39,7 @@ TO SQL SERVER (
     DATABASE :'mz_mssql_db',
     USER :'mz_mssql_user',
     PASSWORD SECRET tpcc.mssql_password,
-    SSL MODE = :'mz_mssql_sslmode'
+    SSL MODE :'mz_mssql_sslmode'
 );
 
 CREATE SOURCE tpcc.tpcc_src

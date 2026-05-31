@@ -64,6 +64,12 @@ This project sets up a local benchmark lab to:
 
 ## Quick Start
 
+	Example command to port forward to materialize in AKS so locust and SQL client can connect
+	```bash
+	kubectl get svc --all-namespaces
+	kubectl port-forward svc/mzy49fo679im-balancerd 6875:6875 -n materialize-environment
+	```
+
 1. Copy `.env.example` to `.env`.
 2. Set `RDBMS=PGSQL` or `RDBMS=MSSQL` depending on the database you want to benchmark.
 3. Start infrastructure:
