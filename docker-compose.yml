@@ -70,6 +70,8 @@ services:
     restart: unless-stopped
     working_dir: /work
     command: ["bash", "-lc", "sleep infinity"]
+    ports:
+      - "8085:8080"   # hammerdbws web UI (container 8080) -> http://localhost:8085
     environment:
       TMP: /work/tmp
       RDBMS: ${RDBMS:-PGSQL}

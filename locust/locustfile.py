@@ -111,6 +111,7 @@ SETTINGS = MaterializeSettings(
 
 
 LOG_QUERIES = _env_bool("LOCUST_LOG_QUERIES", True)
+ISOLATION = _env_str("MATERIALIZE_ISOLATION", "")  # e.g. "serializable"; empty = server default (strict serializable)
 
 
 def _record_sql_result(
@@ -186,6 +187,12 @@ class MaterializeSqlUser(User):
             f"SET cluster = {_sql_ident(SETTINGS.cluster)}",
             record_event=False,
         )
+        if ISOLATION:
+            self._execute_query(
+                "set_isolation",
+                f"SET transaction_isolation = '{ISOLATION}'",
+                record_event=False,
+            )
         self._execute_query(
             "set_search_path",
             f"SET search_path = {_sql_ident(SETTINGS.schema)}, public",
@@ -261,16 +268,17 @@ class MaterializeSqlUser(User):
 
 class CustomerOrderJourney(MaterializeSqlUser):
     @task(2)
-    def customer_directory(self) -> None:
+    def customer_lookup(self) -> None:
+        # Point lookup of a single customer by PK (served by idx_customer_pk).
+        customer = random.choice(self.customer_pool)
         self._execute_query(
-            "customer_directory",
+            "customer_lookup",
             """
-            SELECT c_w_id, c_d_id, c_id, c_first, c_last
+            SELECT c_w_id, c_d_id, c_id, c_first, c_last, c_state, c_phone
             FROM customer
-            ORDER BY c_w_id, c_d_id, c_id
-            LIMIT %s
+            WHERE c_w_id = %s AND c_d_id = %s AND c_id = %s
             """,
-            (SETTINGS.customer_pool_size,),
+            (customer[0], customer[1], customer[2]),
         )
 
     @task(6)
@@ -333,13 +341,16 @@ class CustomerOrderJourney(MaterializeSqlUser):
             )
 
     @task(1)
-    def dashboard_summary(self) -> None:
+    def district_total(self) -> None:
+        # Point lookup of one district's pre-aggregated total
+        # (served by idx_district_order_totals) instead of a full GROUP BY.
+        customer = random.choice(self.customer_pool)
         self._execute_query(
-            "dashboard_summary",
+            "district_total",
             """
-            SELECT o_d_id, sum(o_total) AS total_o_amount
-            FROM order_summary
-            GROUP BY o_d_id
-            ORDER BY o_d_id
+            SELECT total_amount, order_count
+            FROM district_order_totals
+            WHERE o_w_id = %s AND o_d_id = %s
             """,
+            (customer[0], customer[1]),
         )
